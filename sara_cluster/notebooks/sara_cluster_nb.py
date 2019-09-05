@@ -77,6 +77,14 @@ for c in cols:
     qts[c]= qt
 
 # %%
+lenc = len(cols)
+fig,axs = plt.subplots(1,lenc,figsize=[2*lenc,3],sharey=True)
+axsf = axs.flatten()
+for c,a in zip(cols,axsf):
+    sns.distplot(df1[c].dropna(),ax=a,kde=False)
+    a.set_ylim(0,1e5)
+
+# %%
 from sklearn.cluster import KMeans
 
 # %%
@@ -89,6 +97,8 @@ from random import sample
 
 # %%
 df2 = _df = df1[c2].dropna().copy()
+
+# %%
 sam = sample(range(len(_df)),int(len(_df)/10))
 dfs = _df.iloc[sam].copy()
 
@@ -175,6 +185,7 @@ for i, line in enumerate(ax.get_lines()):
     line.set_markevery(5)
 
 # %%
+_df = df2.reset_index()[[time,la,cols[0]]]
 _df1 = _df.groupby([la,time]).count()[cols[0]].unstack(la)
 
 ax=_df1.plot.line(color=ucp.cc,legend=False)
@@ -197,9 +208,59 @@ for il in range(n_c):
     ax.set_global(); ax.coastlines();
 
 # %%
-_df = df2.reset_index()[[time,la,cols[0]]]
-# _df1 = df2.reset_index().set_index(time)[la]
-# _df = _df.resample('M').count()#/_df1.resample('M').count()*100
-# _df.plot(color=[col],linewidth=2)
+df3 = df2.copy()
+for c in cols:
+    _q = qts[c]
+    df3[c] = np.log10(
+        _q.inverse_transform(df2[c].values.reshape(-1,1)).flatten()
+    )
+
+# %%
+l=2
+ln = 'c'+str(l)
+_df = df3[df3[la]==l][cols]
+
+# %%
+_df1 = _df[::].reset_index(drop=True)
+
+# %%
+l1 = 'level_1'
+_df2 = _df1.stack().reset_index()[[l1,0]]
+_df2.rename(columns={0:ln},inplace=True)
+
+# %%
+_df2.groupby(l1).boxplot(column=ln,sharey=False,layout=(1,5),figsize=(8,2));
+plt.gcf().tight_layout()
+
+# %%
+f,axs = plt.subplots(len(cols),n_c,figsize=(7,6))
+for ic in range(len(cols)):
+    for il in range(n_c):
+        ax = axs[ic,il]
+        c = cols[ic]
+
+        _df = df3[df3[la]==il][[c]]
+        q1,q2 = df3[c].quantile([.05,.95])
+        q1 = np.floor(q1)
+        q2 = np.ceil(q2)
+        lq = q2-q1
+        qi = int(round(lq/3))
+        if qi==0: qi=1
+
+        ax = _df.boxplot(ax=ax)
+        _ar = np.arange(q1, q2, qi)
+        ax.set_yticks(_ar)
+        ax.set_yticklabels(10.0**_ar);
+        ax.set_ylim(q1-lq/10,q2+lq/10)
+        ax.set_xticklabels([None])
+        if ic+1!=len(cols):
+            ax.set_xlabel(None)
+        else:
+            ax.set_xlabel(il)
+        if il ==0:
+            ax.set_ylabel(c)
+        else:
+            ax.set_yticklabels(len(_ar)*[None])
+f.tight_layout()
 
 # %%
